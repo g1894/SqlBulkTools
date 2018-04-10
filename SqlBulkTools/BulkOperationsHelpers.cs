@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
@@ -38,8 +37,8 @@ namespace SqlBulkTools
                 actualColumns.Add(row["COLUMN_NAME"].ToString(), row["DATA_TYPE"].ToString());
 
                 if (columnType == "varchar" || columnType == "nvarchar" || 
-                    columnType == "char" || columnType == "binary" || 
-                    columnType == "varbinary")
+                    columnType == "char" || columnType == "nchar" ||
+                    columnType == "binary" || columnType == "varbinary")
 
                 {
                     actualColumnsMaxCharLength.Add(row["COLUMN_NAME"].ToString(),
@@ -68,10 +67,9 @@ namespace SqlBulkTools
             {
                 if (column == "InternalId")
                     continue;
-                string columnType;
-                if (actualColumns.TryGetValue(column, out columnType))
+                if (actualColumns.TryGetValue(column, out var columnType))
                 {
-                    columnType = GetVariableCharType(column, columnType, actualColumnsMaxCharLength);
+                    columnType = GetCharType(column, columnType, actualColumnsMaxCharLength);
                     columnType = GetDecimalPrecisionAndScaleType(column, columnType, actualColumnsPrecision);
                 }
 
@@ -91,12 +89,11 @@ namespace SqlBulkTools
             return command.ToString();
         }
 
-        private string GetVariableCharType(string column, string columnType, Dictionary<string, string> actualColumnsMaxCharLength)
+        private string GetCharType(string column, string columnType, Dictionary<string, string> actualColumnsMaxCharLength)
         {
-            if (columnType == "varchar" || columnType == "nvarchar")
+            if (columnType == "char" || columnType == "nchar" || columnType == "varchar" || columnType == "nvarchar")
             {
-                string maxCharLength;
-                if (actualColumnsMaxCharLength.TryGetValue(column, out maxCharLength))
+                if (actualColumnsMaxCharLength.TryGetValue(column, out string maxCharLength))
                 {
                     if (maxCharLength == "-1")
                         maxCharLength = "max";
@@ -112,9 +109,7 @@ namespace SqlBulkTools
         {
             if (columnType == "decimal" || columnType == "numeric")
             {
-                PrecisionType p;
-
-                if (actualColumnsPrecision.TryGetValue(column, out p))
+                if (actualColumnsPrecision.TryGetValue(column, out var p))
                 {
                     columnType = columnType + "(" + p.NumericPrecision + ", " + p.NumericScale + ")";
                 }
@@ -296,7 +291,7 @@ namespace SqlBulkTools
             }
         }
 
-        internal SqlConnection GetSqlConnection(string connectionName, SqlCredential credentials, SqlConnection connection)
+        internal SqlConnection GetSqlConnection(string connectionString, SqlConnection connection)
         {
             SqlConnection conn = null;
 
@@ -306,10 +301,9 @@ namespace SqlBulkTools
                 return conn;
             }
 
-            if (connectionName != null)
+            if (connectionString != null)
             {
-                conn = new SqlConnection(ConfigurationManager
-                    .ConnectionStrings[connectionName].ConnectionString, credentials);
+                conn = new SqlConnection(connectionString);
                 return conn;
             }
 
@@ -426,9 +420,7 @@ namespace SqlBulkTools
 
             foreach (var column in columns.ToList())
             {
-                string mapping;
-
-                if (customColumnMappings.TryGetValue(column, out mapping))
+                if (customColumnMappings.TryGetValue(column, out var mapping))
                 {
                     bulkCopy.ColumnMappings.Add(mapping, mapping);
                 }
@@ -530,29 +522,79 @@ namespace SqlBulkTools
 
         internal void InsertToTmpTable(SqlConnection conn, SqlTransaction transaction, DataTable dt, bool bulkCopyEnableStreaming, int? bulkCopyBatchSize, int? bulkCopyNotifyAfter, int bulkCopyTimeout, SqlBulkCopyOptions sqlBulkCopyOptions)
         {
-            using (SqlBulkCopy bulkcopy = new SqlBulkCopy(conn, sqlBulkCopyOptions, transaction))
+            using (var bulkcopy = new SqlBulkCopy(conn, sqlBulkCopyOptions, transaction))
             {
-                bulkcopy.DestinationTableName = "#TmpTable";
 
-                SetSqlBulkCopySettings(bulkcopy, bulkCopyEnableStreaming,
-                    bulkCopyBatchSize,
-                    bulkCopyNotifyAfter, bulkCopyTimeout);
+                try
+                {
 
-                bulkcopy.WriteToServer(dt);
+                    bulkcopy.DestinationTableName = "#TmpTable";
+
+                    SetSqlBulkCopySettings(bulkcopy, bulkCopyEnableStreaming,
+                        bulkCopyBatchSize,
+                        bulkCopyNotifyAfter, bulkCopyTimeout);
+
+                    bulkcopy.WriteToServer(dt);
+
+                }
+                catch (SqlException e)
+                {
+                    if (!e.Message.Contains("Received an invalid column length from the bcp client for colid")) throw;
+
+                    const string pattern = @"\d+";
+                    var match = Regex.Match(e.Message, pattern);
+                    var index = Convert.ToInt32(match.Value) - 1;
+
+                    var fi = typeof(SqlBulkCopy).GetField("_sortedColumnMappings", BindingFlags.NonPublic | BindingFlags.Instance);
+                    var sortedColumns = fi.GetValue(bulkcopy);
+                    var items = (object[])sortedColumns.GetType().GetField("_items", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(sortedColumns);
+
+                    var itemdata = items[index].GetType().GetField("_metadata", BindingFlags.NonPublic | BindingFlags.Instance);
+                    var metadata = itemdata.GetValue(items[index]);
+
+                    var column = metadata.GetType().GetField("column", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).GetValue(metadata);
+                    var length = metadata.GetType().GetField("length", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).GetValue(metadata);
+                    throw new DataFormatException(string.Format("Column: {0} contains data with a length greater than: {1}", column, length));
+                }
+         
             }
         }
 
         internal async Task InsertToTmpTableAsync(SqlConnection conn, SqlTransaction transaction, DataTable dt, bool bulkCopyEnableStreaming, int? bulkCopyBatchSize, int? bulkCopyNotifyAfter, int bulkCopyTimeout, SqlBulkCopyOptions sqlBulkCopyOptions)
         {
-            using (SqlBulkCopy bulkcopy = new SqlBulkCopy(conn, sqlBulkCopyOptions, transaction))
+            using (var bulkcopy = new SqlBulkCopy(conn, sqlBulkCopyOptions, transaction))
             {
-                bulkcopy.DestinationTableName = "#TmpTable";
+                try
+                {
 
-                SetSqlBulkCopySettings(bulkcopy, bulkCopyEnableStreaming,
-                    bulkCopyBatchSize,
-                    bulkCopyNotifyAfter, bulkCopyTimeout);
+                    bulkcopy.DestinationTableName = "#TmpTable";
 
-                await bulkcopy.WriteToServerAsync(dt);
+                    SetSqlBulkCopySettings(bulkcopy, bulkCopyEnableStreaming,
+                        bulkCopyBatchSize,
+                        bulkCopyNotifyAfter, bulkCopyTimeout);
+
+                    await bulkcopy.WriteToServerAsync(dt);
+
+                }
+                catch (SqlException e)
+                {
+                    if (!e.Message.Contains("Received an invalid column length from the bcp client for colid")) throw;
+
+                    const string pattern = @"\d+";
+                    var match = Regex.Match(e.Message, pattern);
+                    var index = Convert.ToInt32(match.Value) - 1;
+
+                    var fi = typeof(SqlBulkCopy).GetField("_sortedColumnMappings", BindingFlags.NonPublic | BindingFlags.Instance);
+                    var sortedColumns = fi.GetValue(bulkcopy);
+                    var items = (object[])sortedColumns.GetType().GetField("_items", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(sortedColumns);
+
+                    var itemdata = items[index].GetType().GetField("_metadata", BindingFlags.NonPublic | BindingFlags.Instance);
+                    var metadata = itemdata.GetValue(items[index]);
+
+                    var column = metadata.GetType().GetField("column", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).GetValue(metadata);
+                    var length = metadata.GetType().GetField("length", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).GetValue(metadata);
+                    throw new DataFormatException(string.Format("Column: {0} contains data with a length greater than: {1}", column, length));
+                }
             }
         }
     }

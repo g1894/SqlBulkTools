@@ -92,7 +92,7 @@ namespace SqlBulkTools
             return this;
         }
 
-        void ITransaction.CommitTransaction(string connectionName, SqlCredential credentials, SqlConnection connection)
+        void ITransaction.CommitTransaction(string connectionString, SqlConnection connection)
         {
             if (!_list.Any())
             {
@@ -114,7 +114,7 @@ namespace SqlBulkTools
             // Must be after ToDataTable is called. 
             _helper.DoColumnMappings(_customColumnMappings, _columns);
 
-            using (SqlConnection conn = _helper.GetSqlConnection(connectionName, credentials, connection))
+            using (SqlConnection conn = _helper.GetSqlConnection(connectionString, connection))
             {
                 conn.Open();
                 var dtCols = _helper.GetDatabaseSchema(conn, _schema, _tableName);
@@ -177,12 +177,12 @@ namespace SqlBulkTools
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="connectionName"></param>
+        /// <param name="connectionString"></param>
         /// <param name="credentials"></param>
         /// <param name="connection"></param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        async Task ITransaction.CommitTransactionAsync(string connectionName, SqlCredential credentials, SqlConnection connection)
+        async Task ITransaction.CommitTransactionAsync(string connectionString, SqlConnection connection)
         {
             if (!_list.Any())
             {
@@ -205,7 +205,7 @@ namespace SqlBulkTools
             // Must be after ToDataTable is called. 
             _helper.DoColumnMappings(_customColumnMappings, _columns);
 
-            using (SqlConnection conn = _helper.GetSqlConnection(connectionName, credentials, connection))
+            using (SqlConnection conn = _helper.GetSqlConnection(connectionString, connection))
             {
                 conn.Open();
                 var dtCols = _helper.GetDatabaseSchema(conn, _schema, _tableName);

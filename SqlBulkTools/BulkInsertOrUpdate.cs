@@ -170,7 +170,7 @@ namespace SqlBulkTools
             return this;
         }
 
-        void ITransaction.CommitTransaction(string connectionName, SqlCredential credentials, SqlConnection connection)
+        void ITransaction.CommitTransaction(string connectionString, SqlConnection connection)
         {
             if (!_list.Any())
             {
@@ -193,7 +193,7 @@ namespace SqlBulkTools
             // Must be after ToDataTable is called. 
             _helper.DoColumnMappings(_customColumnMappings, _columns, _matchTargetOn);
 
-            using (SqlConnection conn = _helper.GetSqlConnection(connectionName, credentials, connection))
+            using (SqlConnection conn = _helper.GetSqlConnection(connectionString, connection))
             {
                 conn.Open();
                 var dtCols = _helper.GetDatabaseSchema(conn, _schema, _tableName);
@@ -265,9 +265,7 @@ namespace SqlBulkTools
                                     var test = reader[0];
                                     var test2 = reader[1];
 
-                                    T item;
-
-                                    if (_outputIdentityDic.TryGetValue((int)reader[0], out item))
+                                    if (_outputIdentityDic.TryGetValue((int)reader[0], out var item))
                                     {
                                         Type type = item.GetType();
 
@@ -315,7 +313,7 @@ namespace SqlBulkTools
             }
         }
 
-        async Task ITransaction.CommitTransactionAsync(string connectionName, SqlCredential credentials, SqlConnection connection)
+        async Task ITransaction.CommitTransactionAsync(string connectionString, SqlConnection connection)
         {
             if (!_list.Any())
             {
@@ -338,7 +336,7 @@ namespace SqlBulkTools
             // Must be after ToDataTable is called. 
             _helper.DoColumnMappings(_customColumnMappings, _columns, _matchTargetOn);
 
-            using (SqlConnection conn = _helper.GetSqlConnection(connectionName, credentials, connection))
+            using (SqlConnection conn = _helper.GetSqlConnection(connectionString, connection))
             {
                 conn.Open();
                 var dtCols = _helper.GetDatabaseSchema(conn, _schema, _tableName);

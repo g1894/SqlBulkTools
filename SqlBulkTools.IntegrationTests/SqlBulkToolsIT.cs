@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Configuration;
 using System.Data.Entity;
 using System.Data.SqlClient;
 using System.IO;
@@ -18,12 +19,14 @@ namespace SqlBulkTools.IntegrationTests
         private const int RepeatTimes = 1;
 
         private BookRandomizer _randomizer;
+        private string _connectionString;
         private TestContext _db;
         private List<Book> _bookCollection;
         [OneTimeSetUp]
         public void Setup()
         {
-            _db = new TestContext();
+            _connectionString = ConfigurationManager.ConnectionStrings["SqlBulkToolsTest"].ConnectionString;
+            _db = new TestContext(_connectionString);
             _randomizer = new BookRandomizer();
             Database.SetInitializer(new DropCreateDatabaseAlways<TestContext>());
             DeleteLogFile();
@@ -414,7 +417,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.Id);
 
             // Act & Assert
-            Assert.Throws<IdentityException>(() => bulk.CommitTransaction("SqlBulkToolsTest"));
+            Assert.Throws<IdentityException>(() => bulk.CommitTransaction(_connectionString));
 
         }
 
@@ -440,7 +443,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.Id);
 
             // Act
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             // Assert
             Assert.AreEqual(testDesc, _db.Books.First().Description);
@@ -467,7 +470,7 @@ namespace SqlBulkTools.IntegrationTests
                 .AddAllColumns()
                 .BulkDelete(); // Remove existing rows
 
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             bulk.Setup<SchemaTest2>(x => x.ForCollection(conflictingSchemaCol))
                 .WithTable("SchemaTest")
@@ -475,7 +478,7 @@ namespace SqlBulkTools.IntegrationTests
                 .AddAllColumns()
                 .BulkInsert(); // Add new rows
 
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             // Assert
             Assert.IsTrue(_db.SchemaTest2.Any());
@@ -502,7 +505,7 @@ namespace SqlBulkTools.IntegrationTests
                 .AddAllColumns()
                 .BulkInsert();
 
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             var allItems = _db.SchemaTest1.ToList();
 
@@ -512,7 +515,7 @@ namespace SqlBulkTools.IntegrationTests
                 .BulkDelete()
                 .MatchTargetOn(x => x.Id);
 
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             // Assert
 
@@ -542,7 +545,7 @@ namespace SqlBulkTools.IntegrationTests
                 .BulkUpdate()
                 .MatchTargetOn(x => x.ISBN);
 
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             // Assert
             Assert.AreEqual(updatedPrice, _db.Books.Single(x => x.ISBN == originalElement.ISBN).Price);
@@ -575,7 +578,7 @@ namespace SqlBulkTools.IntegrationTests
                 .CustomColumnMapping(x => x.ColumnYIsDifferentInDatabase, "ColumnY")
                 .BulkInsert();
 
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             // Assert
             Assert.IsTrue(_db.CustomColumnMappingTest.Any());
@@ -601,7 +604,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.Id)
                 .SetIdentityColumn(x => x.Id);
 
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             Assert.IsTrue(_db.ReservedColumnNameTest.Any());
 
@@ -626,7 +629,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.ISBN)
                 .SetIdentityColumn(x => x.Id);
 
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             Assert.AreEqual(_db.Books.First().Price, expectedPrice);
 
@@ -650,7 +653,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.ISBN)
                 .SetIdentityColumn(x => x.Id);
 
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
 
             Assert.AreEqual(_db.Books.First().TestFloat, expectedFloat);
         }
@@ -696,7 +699,7 @@ namespace SqlBulkTools.IntegrationTests
                 .TmpDisableAllNonClusteredIndexes()
                 .BulkInsert();
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
             return elapsedMs;
@@ -711,7 +714,7 @@ namespace SqlBulkTools.IntegrationTests
                 .TmpDisableAllNonClusteredIndexes()
                 .BulkInsert();
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
             return elapsedMs;
@@ -731,7 +734,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.ISBN);
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
 
@@ -749,7 +752,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.ISBN);
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
 
@@ -770,7 +773,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.ISBN);
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
 
@@ -787,7 +790,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.ISBN);
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            bulk.CommitTransaction("SqlBulkToolsTest");
+            bulk.CommitTransaction(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
 
@@ -808,7 +811,7 @@ namespace SqlBulkTools.IntegrationTests
                 .AddColumn(x => x.PublishDate)
                 .BulkInsert();
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            await bulk.CommitTransactionAsync("SqlBulkToolsTest");
+            await bulk.CommitTransactionAsync(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
             return elapsedMs;
@@ -828,7 +831,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.ISBN);
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            await bulk.CommitTransactionAsync("SqlBulkToolsTest");
+            await bulk.CommitTransactionAsync(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
 
@@ -848,7 +851,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.ISBN);
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            await bulk.CommitTransactionAsync("SqlBulkToolsTest");
+            await bulk.CommitTransactionAsync(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
 
@@ -865,7 +868,7 @@ namespace SqlBulkTools.IntegrationTests
                 .MatchTargetOn(x => x.ISBN);
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            await bulk.CommitTransactionAsync("SqlBulkToolsTest");
+            await bulk.CommitTransactionAsync(_connectionString);
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
 

@@ -21,50 +21,43 @@ namespace SqlBulkTools
 
         /// <summary>
         /// Commits a transaction to database. A valid setup must exist for operation to be 
-        /// successful. Notes: (1) The connectionName parameter is a name that you provide to 
+        /// successful. Notes: (1) The connectionString parameter is a name that you provide to 
         /// uniquely identify a connection string so that it can be retrieved at run time.
         /// </summary>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="InvalidOperationException"></exception>
-        /// <param name="connectionName"></param>
-        /// <param name="credentials"></param>
-        public void CommitTransaction(string connectionName, SqlCredential credentials = null)
+        /// <param name="connectionString"></param>
+        public void CommitTransaction(string connectionString)
         {
-            if (connectionName == null)
-                throw new ArgumentNullException(nameof(connectionName) + " not given");
-
-            if (ConfigurationManager.ConnectionStrings[connectionName] == null)
-                throw new InvalidOperationException("Connection name \'" + connectionName + "\' not found. A valid connection name is required for this operation.");
+            if (connectionString == null)
+                throw new ArgumentNullException(nameof(connectionString) + " not given");
 
             if (_transaction == null)
                 throw new InvalidOperationException("No setup found. Use the Setup method to build a new setup then try again.");
             
 
-            _transaction.CommitTransaction(connectionName, credentials);
+            _transaction.CommitTransaction(connectionString);
         }
 
         /// <summary>
         /// Commits a transaction to database. A valid setup must exist for operation to be 
-        /// successful. Notes: (1) The connectionName parameter is a name that you provide to 
+        /// successful. Notes: (1) The connectionString parameter is a name that you provide to 
         /// uniquely identify a connection string so that it can be retrieved at run time.
         /// </summary>
-        /// <param name="connectionName"></param>
+        /// <param name="connectionString"></param>
         /// <param name="credentials"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="InvalidOperationException"></exception>
-        public async Task CommitTransactionAsync(string connectionName, SqlCredential credentials = null)
+        public async Task CommitTransactionAsync(string connectionString)
         {
-            if (connectionName == null)
-                throw new ArgumentNullException(nameof(connectionName) + " not given");
-
-            if (ConfigurationManager.ConnectionStrings[connectionName] == null)
-                throw new InvalidOperationException("Connection name \'" + connectionName + "\' not found. A valid connection name is required for this operation.");
+            if (connectionString == null)
+                throw new ArgumentNullException(nameof(connectionString) + " not given");
 
             if (_transaction == null)
                 throw new InvalidOperationException("No setup found. Use the Setup method to build a new setup then try again.");
 
-            await _transaction.CommitTransactionAsync(connectionName, credentials);
+            await _transaction.CommitTransactionAsync(connectionString);
         }
 
 

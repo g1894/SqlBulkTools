@@ -5,8 +5,8 @@ namespace SqlBulkTools.IntegrationTests
 {
     public class TestContext : DbContext 
     {
-        public TestContext()
-            : base("SqlBulkToolsTest")
+        public TestContext(string connectionString)
+            : base(connectionString)
         {
             this.Database.CommandTimeout = 150;
         }
